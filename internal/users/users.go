@@ -3,11 +3,17 @@ package users
 import (
 	"database/sql"
 
-	database "github.com/dzabeligan/hackernews/internal/pkg/db/mysql"
+	database "github.com/dzabeligan/hackernews/internal/pkg/db/migrations/mysql"
 	"golang.org/x/crypto/bcrypt"
 
 	"log"
 )
+
+type WrongUsernameOrPasswordError struct{}
+
+func (m *WrongUsernameOrPasswordError) Error() string {
+	return "wrong username or password"
+}
 
 type User struct {
 	ID       string `json:"id"`
@@ -58,4 +64,24 @@ func GetUserIdByUsername(username string) (int, error) {
 	}
 
 	return Id, nil
+}
+
+func (user *User) Authenticate() bool {
+	statement, err := database.Db.Prepare("select Password from Users WHERE Username = ?")
+	if err != nil {
+		log.Fatal(err)
+	}
+	row := statement.QueryRow(user.Username)
+
+	var hashedPassword string
+	err = row.Scan(&hashedPassword)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false
+		} else {
+			log.Fatal(err)
+		}
+	}
+
+	return CheckPasswordHash(user.Password, hashedPassword)
 }

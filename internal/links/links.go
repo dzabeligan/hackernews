@@ -7,7 +7,6 @@ import (
 	"github.com/dzabeligan/hackernews/internal/users"
 )
 
-// #1
 type Link struct {
 	ID      string
 	Title   string
@@ -15,19 +14,15 @@ type Link struct {
 	User    *users.User
 }
 
-//#2
 func (link Link) Save() int64 {
-	//#3
-	stmt, err := database.Db.Prepare("INSERT INTO Links(Title,Address) VALUES(?,?)")
+	stmt, err := database.Db.Prepare("INSERT INTO Links(Title,Address, UserID) VALUES(?,?, ?)")
 	if err != nil {
 		log.Fatal(err)
 	}
-	//#4
-	res, err := stmt.Exec(link.Title, link.Address)
+	res, err := stmt.Exec(link.Title, link.Address, link.User.ID)
 	if err != nil {
 		log.Fatal(err)
 	}
-	//#5
 	id, err := res.LastInsertId()
 	if err != nil {
 		log.Fatal("Error:", err.Error())
@@ -37,7 +32,7 @@ func (link Link) Save() int64 {
 }
 
 func GetAll() []Link {
-	stmt, err := database.Db.Prepare("select id, title, address from Links")
+	stmt, err := database.Db.Prepare("select L.id, L.title, L.address, L.UserID, U.Username from Links L inner join Users U on L.UserID = U.ID")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -48,11 +43,17 @@ func GetAll() []Link {
 	}
 	defer rows.Close()
 	var links []Link
+	var username string
+	var id string
 	for rows.Next() {
 		var link Link
-		err := rows.Scan(&link.ID, &link.Title, &link.Address)
+		err := rows.Scan(&link.ID, &link.Title, &link.Address, &id, &username)
 		if err != nil {
 			log.Fatal(err)
+		}
+		link.User = &users.User{
+			ID:       id,
+			Username: username,
 		}
 		links = append(links, link)
 	}
